@@ -15,11 +15,13 @@ import io.pravega.common.MathHelpers;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Used to select which event should go next when consuming from multiple segments.
  *
  */
+@Slf4j
 @RequiredArgsConstructor
 public class Orderer {
     private final AtomicInteger counter = new AtomicInteger(0);
@@ -41,9 +43,11 @@ public class Orderer {
         if (segments.isEmpty()) {
             return null;
         }
+        log.warn("Orderer asked to select which segment to read from amoungst {}", segments);
         for (int i = 0; i < segments.size(); i++) {
             T inputStream = segments.get(MathHelpers.abs(counter.incrementAndGet()) % segments.size());
             if (inputStream.canReadWithoutBlocking()) {
+                log.warn("Selecting segment: " + inputStream.getSegmentId());
                 return inputStream;
             } else {
                 inputStream.fillBuffer();

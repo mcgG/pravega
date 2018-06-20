@@ -33,7 +33,7 @@ import static io.pravega.client.segment.impl.EndOfSegmentException.ErrorType.END
  * @see SegmentInputStream
  */
 @Slf4j
-@ToString
+@ToString(of = { "buffer", "offset", "outstandingRequest", "endOffset", "receivedEndOfSegment", "receivedTruncated" })
 class SegmentInputStreamImpl implements SegmentInputStream {
     static final int DEFAULT_BUFFER_SIZE = 1024 * 1024;
     private static final int DEFAULT_READ_LENGTH = 256 * 1024;
@@ -111,7 +111,8 @@ class SegmentInputStreamImpl implements SegmentInputStream {
     @Override
     @Synchronized
     public ByteBuffer read(long timeout) throws EndOfSegmentException, SegmentTruncatedException {
-        log.trace("Read called at offset {}", offset);
+        long time = System.currentTimeMillis();
+        log.warn("Read called for segment {}. Status is {}", getSegmentId(), this);
         Exceptions.checkNotClosed(asyncInput.isClosed(), this);
         long originalOffset = offset;
         boolean success = false;
@@ -120,6 +121,7 @@ class SegmentInputStreamImpl implements SegmentInputStream {
             success = true;
             return result;
         } finally {
+            log.warn("Read for segment {} returning after {}ms.", getSegmentId(), System.currentTimeMillis() - time);
             if (!success) {
                 outstandingRequest = null;
                 offset = originalOffset;
@@ -174,6 +176,7 @@ class SegmentInputStreamImpl implements SegmentInputStream {
     }
 
     private void handleRequest() throws SegmentTruncatedException {
+        log.warn("Handling request {} on segment {}", outstandingRequest, getSegmentId());
         SegmentRead segmentRead;
         try {
             segmentRead = outstandingRequest.join();
@@ -214,6 +217,7 @@ class SegmentInputStreamImpl implements SegmentInputStream {
         //compute read length based on current offset up to which the events are read.
         int updatedReadLength = computeReadLength(offset + buffer.dataAvailable(), readLength);
         if (!receivedEndOfSegment && !receivedTruncated && updatedReadLength > 0 && buffer.capacityAvailable() >= updatedReadLength && outstandingRequest == null) {
+            log.warn("Issuing read request for segment {} of {} bytes", getSegmentId(), updatedReadLength);
             outstandingRequest = asyncInput.read(offset + buffer.dataAvailable(), updatedReadLength);
         }
     }
@@ -245,7 +249,7 @@ class SegmentInputStreamImpl implements SegmentInputStream {
     @Override
     @Synchronized
     public void fillBuffer() {
-        log.trace("Filling buffer {}", this);
+        log.warn("Filling buffer {}", getSegmentId());
         Exceptions.checkNotClosed(asyncInput.isClosed(), this);
         try {      
             issueRequestIfNeeded();
@@ -262,7 +266,7 @@ class SegmentInputStreamImpl implements SegmentInputStream {
     public boolean canReadWithoutBlocking() {
         boolean result = buffer.dataAvailable() > 0 || (outstandingRequest != null && Futures.isSuccessful(outstandingRequest)
                 && outstandingRequest.join().getData().hasRemaining());
-        log.trace("canReadWithoutBlocking {}", result);
+        log.warn("canReadWithoutBlocking {} on segment {} status is {}", result, getSegmentId(), this);
         return result;
     }
 

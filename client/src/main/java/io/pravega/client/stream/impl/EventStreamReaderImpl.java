@@ -91,6 +91,7 @@ public class EventStreamReaderImpl<Type> implements EventStreamReader<Type> {
             do { 
                 String checkpoint = updateGroupStateIfNeeded();
                 if (checkpoint != null) {
+                     log.warn("Returning a checkpoint after {}ms", timer.getElapsedMillis());
                      return createEmptyEvent(checkpoint);
                 }
                 SegmentInputStream segmentReader = orderer.nextSegment(readers);
@@ -114,8 +115,10 @@ public class EventStreamReaderImpl<Type> implements EventStreamReader<Type> {
             } while (buffer == null && timer.getElapsedMillis() < timeout);
             
             if (buffer == null) {
+                log.warn("Returning null after {}ms", timer.getElapsedMillis());
                return createEmptyEvent(null);
             } 
+            log.warn("Returning an event after {}ms", timer.getElapsedMillis());
             lastRead = Sequence.create(segment.getSegmentId(), offset);
             int length = buffer.remaining() + WireCommands.TYPE_PLUS_LENGTH_SIZE;
             return new EventReadImpl<>(lastRead,
