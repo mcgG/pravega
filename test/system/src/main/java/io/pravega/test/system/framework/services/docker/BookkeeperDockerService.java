@@ -75,10 +75,12 @@ public class BookkeeperDockerService extends DockerBasedService {
         String env2 = "ZK=" + zk;
         String env3 = "bookiePort=" + String.valueOf(BK_PORT);
         String env4 = "DLOG_EXTRA_OPTS=-Xms512m";
+        String env5 = "BK_useHostNameAsBookieID=true";
         stringList.add(env1);
         stringList.add(env2);
         stringList.add(env3);
         stringList.add(env4);
+        stringList.add(env5);
 
         final TaskSpec taskSpec = TaskSpec
                 .builder().restartPolicy(RestartPolicy.builder().maxAttempts(0).condition("none").build())
